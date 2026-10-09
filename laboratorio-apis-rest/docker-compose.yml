@@ -1,0 +1,41 @@
+
+services:
+  mi-api-backend:
+    build: ./api-backend
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: tareasdb
+      DB_USER: tareasuser
+      DB_PASSWORD: tareas_dev_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mi-web-frontend:
+    build: ./app-frontend
+    ports:
+      - "8082:80"
+    depends_on:
+      - mi-api-backend
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tareasdb
+      POSTGRES_USER: tareasuser
+      POSTGRES_PASSWORD: tareas_dev_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tareasuser -d tareasdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

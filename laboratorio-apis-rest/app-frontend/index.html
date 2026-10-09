@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Tareas API REST</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px auto;
+            padding: 0 20px;
+            max-width: 800px;
+            background: #f4f7f6;
+            color: #333;
+        }
+
+        h1 {
+            color: #243b53;
+        }
+
+        .formulario {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            font-size: 16px;
+            min-width: 0;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .agregar {
+            background: #1769aa;
+            color: white;
+        }
+
+        .vaciar {
+            background: #b42318;
+            color: white;
+            margin-top: 12px;
+        }
+
+        .eliminar {
+            background: #e4e7eb;
+            margin-left: 10px;
+        }
+
+        li {
+            background: white;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            overflow-wrap: anywhere;
+        }
+
+        #estado {
+            margin-top: 15px;
+            color: #1769aa;
+        }
+
+        @media (max-width: 550px) {
+            .formulario {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Mi Gestor de Tareas (Consumiendo API REST)</h1>
+
+    <p>
+        Esta aplicación permite consultar, agregar y eliminar tareas
+        mediante una API REST.
+    </p>
+
+    <div class="formulario">
+        <input
+            type="text"
+            id="inputTarea"
+            placeholder="Escribe una nueva tarea..."
+        >
+
+        <button class="agregar" onclick="agregarTarea()">
+            Agregar tarea
+        </button>
+    </div>
+
+    <h2>Lista de tareas</h2>
+
+    <ul id="listaTareas"></ul>
+
+    <button class="vaciar" onclick="vaciarLista()">
+        Vaciar Lista de Tareas
+    </button>
+
+    <p id="estado" role="status"></p>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api/tareas';
+
+        // GET: consultar y mostrar las tareas
+        async function cargarTareas() {
+            const lista = document.getElementById('listaTareas');
+            const estado = document.getElementById('estado');
+
+            try {
+                const respuesta = await fetch(API_URL);
+
+                if (!respuesta.ok) {
+                    throw new Error('No fue posible consultar las tareas.');
+                }
+
+                const tareas = await respuesta.json();
+                lista.innerHTML = '';
+
+                tareas.forEach(tarea => {
+                    const elemento = document.createElement('li');
+                    const texto = document.createElement('span');
+                    const boton = document.createElement('button');
+
+                    texto.textContent = tarea.texto;
+                    boton.textContent = '❌';
+                    boton.className = 'eliminar';
+                    boton.setAttribute(
+                        'aria-label',
+                        'Eliminar ' + tarea.texto
+                    );
+                    boton.onclick = () => eliminarTarea(tarea.id);
+
+                    elemento.appendChild(texto);
+                    elemento.appendChild(boton);
+                    lista.appendChild(elemento);
+                });
+
+                estado.textContent = `Total de tareas: ${tareas.length}`;
+            } catch (error) {
+                estado.textContent =
+                    'Error al conectar con la API: ' + error.message;
+            }
+        }
+
+        // POST: crear una nueva tarea
+        async function agregarTarea() {
+            const input = document.getElementById('inputTarea');
+            const texto = input.value.trim();
+            const estado = document.getElementById('estado');
+
+            if (!texto) {
+                estado.textContent = 'Escribe una tarea antes de agregarla.';
+                return;
+            }
+
+            try {
+                const respuesta = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ texto: texto })
+                });
+
+                if (!respuesta.ok) {
+                    throw new Error('No fue posible agregar la tarea.');
+                }
+
+                input.value = '';
+                await cargarTareas();
+            } catch (error) {
+                estado.textContent = error.message;
+            }
+        }
+
+        // DELETE: eliminar una tarea individual
+        async function eliminarTarea(id) {
+            try {
+                const respuesta = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!respuesta.ok) {
+                    throw new Error('No fue posible eliminar la tarea.');
+                }
+
+                await cargarTareas();
+            } catch (error) {
+                document.getElementById('estado').textContent =
+                    error.message;
+            }
+        }
+
+        // DELETE global: vaciar toda la lista
+        async function vaciarLista() {
+            const estado = document.getElementById('estado');
+
+            if (!confirm('¿Deseas eliminar todas las tareas?')) {
+                return;
+            }
+
+            try {
+                const respuesta = await fetch(`${API_URL}/limpiar`, {
+                    method: 'DELETE'
+                });
+
+                if (!respuesta.ok) {
+                    throw new Error('No fue posible vaciar la lista.');
+                }
+
+                await cargarTareas();
+                estado.textContent = 'La lista se vació correctamente.';
+            } catch (error) {
+                estado.textContent = error.message;
+            }
+        }
+
+        // Permitir agregar una tarea con la tecla Enter
+        document.getElementById('inputTarea')
+            .addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    agregarTarea();
+                }
+            });
+
+        // Consultar las tareas al abrir la página
+        cargarTareas();
+    </script>
+</body>
+</html>
